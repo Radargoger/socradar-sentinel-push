@@ -6,8 +6,17 @@ Nothing runs in your Azure subscription: no Logic App, no Function App, no stora
 The template creates the `SOCRadar_Alarms_CL` table, a data collection endpoint and rule,
 two analytic rules per alarm type (10 NRT rules and 10 scheduled backstop rules), an automation
 rule that labels incidents `SOCRadar`, and the `SOCRadar Alarms` workbook. Table, workbook and
-incidents are the same as in the pull template (SOCRadar-Azure-Incidents-CCF).
+incidents are the same as in the pull template ([SOCRadar-Azure-Incidents-CCF](https://github.com/orcunsami/SOCRadar-Azure-Incidents-CCF)).
 The scheduled rules only pick up what the NRT rules missed.
+
+Step by step with screenshots: [docs/setup-guide.md](docs/setup-guide.md).
+
+| Value | Goes to | Where |
+|-------|---------|-------|
+| Tenant ID, Application (client) ID | SOCRadar | App Overview page, step 1.2 |
+| Application secret | SOCRadar | Certificates & secrets, step 1.3 |
+| Service Principal Object ID | Deploy form | Enterprise application, step 1.4 |
+| Data Collection Endpoint URI, Data Collection Rule immutable ID | SOCRadar | Deployment outputs, step 3 |
 
 ## 1. Register an application
 
@@ -40,7 +49,9 @@ To update an existing setup to the latest template, deploy again into the same r
 
 ## 3. Copy the outputs
 
-Open the deployment > Outputs and copy `DceUri` and `DcrImmutableId`. `TenantId` is the tenant of the subscription.
+Open the deployment > Outputs and copy `dceUri` and `dcrImmutableId`. `tenantId` is the tenant of the subscription.
+
+The same values are on the resources: data collection endpoint > Overview > Logs Ingestion, and data collection rule > Overview > Immutable ID.
 
 ## 4. Enter the values in SOCRadar
 
@@ -49,8 +60,8 @@ Open the deployment > Outputs and copy `DceUri` and `DcrImmutableId`. `TenantId`
 | Tenant ID | Directory (tenant) ID, step 1.2 |
 | Application (client) ID | Application (client) ID, step 1.2 |
 | Application secret | the secret value, step 1.3 |
-| Data Collection Endpoint URI | `DceUri`, step 3 |
-| Data Collection Rule immutable ID | `DcrImmutableId`, step 3 |
+| Data Collection Endpoint URI | `dceUri`, step 3 |
+| Data Collection Rule immutable ID | `dcrImmutableId`, step 3 |
 
 ## 5. Check
 

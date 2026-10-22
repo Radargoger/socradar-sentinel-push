@@ -386,7 +386,7 @@
             "destinations": [
               "clv2ws1"
             ],
-            "transformKql": "source | extend TimeGenerated = iff(isnotempty(AlarmDate) and todatetime(AlarmDate) > ago(2d), todatetime(AlarmDate), now()), AlarmText = substring(AlarmText, 0, 4000), Severity = case(toupper(Severity) == \"CRITICAL\", \"Critical\", toupper(Severity) == \"HIGH\", \"High\", toupper(Severity) == \"MEDIUM\", \"Medium\", toupper(Severity) == \"LOW\", \"Low\", toupper(Severity) == \"INFO\", \"Info\", Severity), Status = toupper(Status)",
+            "transformKql": "source | extend TimeGenerated = now(), AlarmText = substring(AlarmText, 0, 4000), Severity = toupper(Severity), Status = toupper(Status)",
             "outputStream": "Custom-SOCRadar_Alarms_CL"
           }
         ]

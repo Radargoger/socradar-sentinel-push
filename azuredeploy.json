@@ -10,9 +10,9 @@
     },
     "DeployNewWorkspace": {
       "type": "bool",
-      "defaultValue": true,
+      "defaultValue": false,
       "metadata": {
-        "description": "true creates the workspace and enables Microsoft Sentinel on it. false uses an existing Microsoft Sentinel workspace in this resource group."
+        "description": "Default false: the workspace in WorkspaceName must already exist in this resource group, and a misspelled name fails before anything is created. true creates the workspace and enables Microsoft Sentinel on it."
       }
     },
     "WorkspaceLocation": {
@@ -38,7 +38,14 @@
   },
   "variables": {
     "location": "[parameters('WorkspaceLocation')]",
-    "tableName": "SOCRadar_Alarms_CL",
+    "tableName": "SOCRadar_Push_Alarms_CL",
+    "alarmCustomDetails": {
+      "AlarmId": "AlarmId",
+      "AlarmMainType": "AlarmMainType",
+      "AlarmSubType": "AlarmSubType",
+      "SocradarSeverity": "Severity",
+      "AlarmStatus": "Status"
+    },
     "automationRuleId": "[guid(resourceId('Microsoft.OperationalInsights/workspaces', parameters('WorkspaceName')), 'socradar-ccf-alarm-automation-rule')]",
     "mainTypes": [
       "Executive Protection",
@@ -49,8 +56,36 @@
       "Configuration Weakness",
       "Supply Chain Intelligence",
       "Brand Protection",
-      "VIP Protection"
+      "VIP Protection",
+      "Surface Web Monitoring",
+      "Vulnerability Intelligence",
+      "Threat Hunting",
+      "Attack Surface Management",
+      "Industry Attacks Monitoring",
+      "Botnet",
+      "Phishing Domain",
+      "Domain"
     ],
+    "tacticsMap": {
+      "Executive Protection": { "tactics": ["Reconnaissance"], "techniques": ["T1589", "T1593"] },
+      "Fraud Protection": { "tactics": ["InitialAccess"], "techniques": ["T1566"] },
+      "Vulnerability Monitoring": { "tactics": ["Reconnaissance", "InitialAccess"], "techniques": ["T1595", "T1190"] },
+      "Deep&Dark Web Monitoring": { "tactics": ["CredentialAccess"], "techniques": ["T1555", "T1110"] },
+      "Internet Asset Inventory Monitoring": { "tactics": ["Reconnaissance"], "techniques": ["T1595"] },
+      "Configuration Weakness": { "tactics": ["InitialAccess"], "techniques": ["T1190"] },
+      "Supply Chain Intelligence": { "tactics": ["InitialAccess"], "techniques": ["T1195"] },
+      "Brand Protection": { "tactics": ["ResourceDevelopment", "InitialAccess"], "techniques": ["T1583", "T1566"] },
+      "VIP Protection": { "tactics": ["Reconnaissance"], "techniques": ["T1589"] },
+      "Surface Web Monitoring": { "tactics": ["Reconnaissance", "Exfiltration"], "techniques": ["T1593", "T1567"] },
+      "Vulnerability Intelligence": { "tactics": ["Reconnaissance", "InitialAccess"], "techniques": ["T1595", "T1190"] },
+      "Threat Hunting": { "tactics": ["InitialAccess", "CommandAndControl"], "techniques": ["T1566", "T1071"] },
+      "Attack Surface Management": { "tactics": ["Reconnaissance"], "techniques": ["T1595", "T1596"] },
+      "Industry Attacks Monitoring": { "tactics": ["Reconnaissance"], "techniques": ["T1591"] },
+      "Botnet": { "tactics": ["CredentialAccess"], "techniques": ["T1555", "T1056"] },
+      "Phishing Domain": { "tactics": ["ResourceDevelopment", "InitialAccess"], "techniques": ["T1583", "T1566"] },
+      "Domain": { "tactics": ["ResourceDevelopment", "InitialAccess"], "techniques": ["T1583", "T1566"] },
+      "Other": { "tactics": "[json('[]')]", "techniques": "[json('[]')]" }
+    },
     "ruleTypes": "[concat(variables('mainTypes'), createArray('Other'))]",
     "knownTypesKql": "[replace(replace(string(variables('mainTypes')), '[', '('), ']', ')')]",
     "workbookId": "[guid(resourceGroup().id, parameters('WorkspaceName'), 'socradar-alarms-workbook')]",
@@ -60,7 +95,7 @@
         {
           "type": 1,
           "content": {
-            "json": "## SOCRadar alarms\nAlarms the SOCRadar Alarms connector wrote to SOCRadar_Alarms_CL. Only the newest row per alarm counts."
+            "json": "## SOCRadar alarms\nAlarms the SOCRadar Alarms connector wrote to SOCRadar_Push_Alarms_CL. Only the newest row per alarm counts."
           },
           "name": "title"
         },
@@ -68,7 +103,7 @@
           "type": 3,
           "content": {
             "version": "KqlItem/1.0",
-            "query": "SOCRadar_Alarms_CL\n| summarize arg_max(TimeGenerated, *) by AlarmId\n| summarize Alarms = count() by Status",
+            "query": "SOCRadar_Push_Alarms_CL\n| summarize arg_max(TimeGenerated, *) by AlarmId\n| summarize Alarms = count() by Status",
             "size": 1,
             "title": "Alarms by status",
             "timeContext": {
@@ -84,7 +119,7 @@
           "type": 3,
           "content": {
             "version": "KqlItem/1.0",
-            "query": "SOCRadar_Alarms_CL\n| summarize arg_max(TimeGenerated, *) by AlarmId\n| summarize Alarms = count() by AlarmMainType\n| sort by Alarms desc",
+            "query": "SOCRadar_Push_Alarms_CL\n| summarize arg_max(TimeGenerated, *) by AlarmId\n| summarize Alarms = count() by AlarmMainType\n| sort by Alarms desc",
             "size": 1,
             "title": "Alarms by main type",
             "timeContext": {
@@ -100,7 +135,7 @@
           "type": 3,
           "content": {
             "version": "KqlItem/1.0",
-            "query": "SOCRadar_Alarms_CL\n| summarize arg_max(TimeGenerated, *) by AlarmId\n| summarize Alarms = count() by Severity",
+            "query": "SOCRadar_Push_Alarms_CL\n| summarize arg_max(TimeGenerated, *) by AlarmId\n| summarize Alarms = count() by Severity",
             "size": 1,
             "title": "Alarms by SOCRadar severity",
             "timeContext": {
@@ -116,7 +151,7 @@
           "type": 3,
           "content": {
             "version": "KqlItem/1.0",
-            "query": "SOCRadar_Alarms_CL\n| summarize arg_max(TimeGenerated, *) by AlarmId\n| summarize Alarms = count() by bin(TimeGenerated, 1d)\n| render timechart",
+            "query": "SOCRadar_Push_Alarms_CL\n| summarize arg_max(TimeGenerated, *) by AlarmId\n| summarize Alarms = count() by bin(TimeGenerated, 1d)\n| render timechart",
             "size": 1,
             "title": "New alarms per day",
             "timeContext": {
@@ -131,7 +166,7 @@
           "type": 3,
           "content": {
             "version": "KqlItem/1.0",
-            "query": "SOCRadar_Alarms_CL\n| summarize arg_max(TimeGenerated, *) by AlarmId\n| sort by TimeGenerated desc\n| take 50\n| project TimeGenerated, AlarmId, Title, AlarmMainType, Severity, Status",
+            "query": "SOCRadar_Push_Alarms_CL\n| summarize arg_max(TimeGenerated, *) by AlarmId\n| sort by TimeGenerated desc\n| take 50\n| project TimeGenerated, AlarmId, Title, AlarmMainType, Severity, Status",
             "size": 0,
             "title": "Latest 50 alarms",
             "timeContext": {
@@ -146,13 +181,52 @@
       "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
     },
     "dceName": "SOCRadar-Push-DCE",
-    "dcrName": "SOCRadar-Alarms-Push-DCR"
+    "dcrName": "SOCRadar-Alarms-Push-DCR",
+    "workspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('WorkspaceName'))]"
   },
   "resources": [
     {
+      "comments": "Resolves the existing workspace, and its Microsoft Sentinel onboarding, before any resource is created. A condition:false resource counts as a satisfied dependency in ARM, so depending on the workspace resource itself does not stop the deployment when WorkspaceName does not exist and DeployNewWorkspace is false -- it would create the data collection endpoint and rule and only then fail. This template onboards Microsoft Sentinel only when it creates the workspace, so an existing workspace without it would fail at the analytics rules after the endpoint and rule were already created; onboardingStates/default returns NotFound in exactly that case, which is the polarity reference() can assert.",
+      "condition": "[not(parameters('DeployNewWorkspace'))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "precheck-workspace-exists",
+      "properties": {
+        "mode": "Incremental",
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "parameters": {
+          "WorkspaceResourceId": {
+            "value": "[variables('workspaceResourceId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "parameters": {
+            "WorkspaceResourceId": {
+              "type": "string"
+            }
+          },
+          "resources": [],
+          "outputs": {
+            "workspaceId": {
+              "type": "string",
+              "value": "[reference(parameters('WorkspaceResourceId'), '2025-07-01', 'Full').properties.customerId]"
+            },
+            "sentinelOnboarded": {
+              "type": "string",
+              "value": "[reference(extensionResourceId(parameters('WorkspaceResourceId'), 'Microsoft.SecurityInsights/onboardingStates', 'default'), '2025-09-01', 'Full').id]"
+            }
+          }
+        }
+      }
+    },
+    {
       "condition": "[parameters('DeployNewWorkspace')]",
       "type": "Microsoft.OperationalInsights/workspaces",
-      "apiVersion": "2023-09-01",
+      "apiVersion": "2025-07-01",
       "name": "[parameters('WorkspaceName')]",
       "location": "[variables('location')]",
       "properties": {}
@@ -164,6 +238,7 @@
       "name": "[concat('SecurityInsights(', parameters('WorkspaceName'), ')')]",
       "location": "[variables('location')]",
       "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'precheck-workspace-exists')]",
         "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('WorkspaceName'))]"
       ],
       "plan": {
@@ -179,18 +254,20 @@
     {
       "condition": "[parameters('DeployNewWorkspace')]",
       "type": "Microsoft.OperationalInsights/workspaces/providers/onboardingStates",
-      "apiVersion": "2024-03-01",
+      "apiVersion": "2025-09-01",
       "name": "[concat(parameters('WorkspaceName'), '/Microsoft.SecurityInsights/default')]",
       "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'precheck-workspace-exists')]",
         "[resourceId('Microsoft.OperationsManagement/solutions', concat('SecurityInsights(', parameters('WorkspaceName'), ')'))]"
       ],
       "properties": {}
     },
     {
       "type": "Microsoft.OperationalInsights/workspaces/tables",
-      "apiVersion": "2022-10-01",
+      "apiVersion": "2025-07-01",
       "name": "[concat(parameters('WorkspaceName'), '/', variables('tableName'))]",
       "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'precheck-workspace-exists')]",
         "[resourceId('Microsoft.OperationalInsights/workspaces/providers/onboardingStates', parameters('WorkspaceName'), 'Microsoft.SecurityInsights', 'default')]"
       ],
       "properties": {
@@ -276,21 +353,25 @@
     },
     {
       "type": "Microsoft.Insights/dataCollectionEndpoints",
-      "apiVersion": "2023-03-11",
+      "apiVersion": "2024-03-11",
       "name": "[variables('dceName')]",
       "location": "[variables('location')]",
       "properties": {
         "networkAcls": {
           "publicNetworkAccess": "Enabled"
         }
-      }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'precheck-workspace-exists')]"
+      ]
     },
     {
       "type": "Microsoft.Insights/dataCollectionRules",
-      "apiVersion": "2023-03-11",
+      "apiVersion": "2025-05-11",
       "name": "[variables('dcrName')]",
       "location": "[variables('location')]",
       "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'precheck-workspace-exists')]",
         "[resourceId('Microsoft.Insights/dataCollectionEndpoints', variables('dceName'))]",
         "[resourceId('Microsoft.OperationalInsights/workspaces/tables', parameters('WorkspaceName'), variables('tableName'))]"
       ],
@@ -387,7 +468,7 @@
               "clv2ws1"
             ],
             "transformKql": "source | extend TimeGenerated = now(), AlarmText = substring(AlarmText, 0, 4000), Severity = toupper(Severity), Status = toupper(Status)",
-            "outputStream": "Custom-SOCRadar_Alarms_CL"
+            "outputStream": "Custom-SOCRadar_Push_Alarms_CL"
           }
         ]
       }
@@ -399,6 +480,7 @@
       "name": "[guid(resourceGroup().id, variables('dcrName'), parameters('ServicePrincipalObjectId'))]",
       "scope": "[format('Microsoft.Insights/dataCollectionRules/{0}', variables('dcrName'))]",
       "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'precheck-workspace-exists')]",
         "[resourceId('Microsoft.Insights/dataCollectionRules', variables('dcrName'))]"
       ],
       "properties": {
@@ -409,7 +491,7 @@
     },
     {
       "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
-      "apiVersion": "2024-03-01",
+      "apiVersion": "2025-09-01",
       "name": "[concat(parameters('WorkspaceName'), '/Microsoft.SecurityInsights/', guid(resourceId('Microsoft.OperationalInsights/workspaces', parameters('WorkspaceName')), 'socradar-ccf-alarm-rule', variables('ruleTypes')[copyIndex()]))]",
       "kind": "Scheduled",
       "copy": {
@@ -422,15 +504,15 @@
         "description": "[concat('Raises one alert, and one incident, for every OPEN SOCRadar alarm of main type ', variables('ruleTypes')[copyIndex()], '. Switch the rule off to stop incidents for that type.')]",
         "severity": "Medium",
         "enabled": true,
-        "query": "[concat('let alerted = SecurityAlert\n| where TimeGenerated > ago(1d)\n| where AlertName startswith \"[SOCRadar] #\"\n| extend AlertAlarmId = tostring(extract(@\"#(\\d+) \", 1, AlertName))\n| distinct AlertAlarmId;\nSOCRadar_Alarms_CL\n| where ingestion_time() > ago(1d)\n| where ingestion_time() < ago(12m)\n| where isnotempty(AlarmId)\n| where column_ifexists(\"EventType\", \"\") != \"connection.test\"\n| where AlarmId !in (alerted)\n| where ', if(equals(variables('ruleTypes')[copyIndex()], 'Other'), concat('AlarmMainType !in ', variables('knownTypesKql')), concat('AlarmMainType == \"', variables('ruleTypes')[copyIndex()], '\"')), '\n| summarize arg_max(TimeGenerated, *) by AlarmId\n| where toupper(Status) == \"OPEN\"\n| extend AlarmUrl = coalesce(column_ifexists(\"AlarmUrl\", \"\"), strcat(\"https://platform.socradar.com/company/\", CompanyId, \"/alarm/\", AlarmId))\n| extend SentinelSeverity = case(toupper(Severity) in (\"CRITICAL\", \"HIGH\"), \"High\", toupper(Severity) == \"MEDIUM\", \"Medium\", \"Low\")\n| extend AlarmDescription = strcat(substring(AlarmText, 0, 1500), \"\\n\\nSOCRadar severity: \", toupper(Severity))\n| project TimeGenerated, AlarmId, CompanyId, Title, AlarmDescription, AlarmMainType, AlarmSubType, Severity, Status, AlarmDate, AlarmUrl, SentinelSeverity\n| order by TimeGenerated asc\n| take 149')]",
+        "query": "[concat('let alerted = SecurityAlert\n| where TimeGenerated > ago(1d)\n| where AlertName startswith \"[SOCRadar] #\"\n| extend AlertAlarmId = tostring(extract(@\"#(\\d+) \", 1, AlertName))\n| distinct AlertAlarmId;\nSOCRadar_Push_Alarms_CL\n| where ingestion_time() > ago(1d)\n| where ingestion_time() < ago(12m)\n| where isnotempty(AlarmId)\n| where column_ifexists(\"EventType\", \"\") != \"connection.test\"\n| where AlarmId !in (alerted)\n| where ', if(equals(variables('ruleTypes')[copyIndex()], 'Other'), concat('AlarmMainType !in ', variables('knownTypesKql')), concat('AlarmMainType == \"', variables('ruleTypes')[copyIndex()], '\"')), '\n| summarize arg_max(TimeGenerated, *) by AlarmId\n| where toupper(Status) == \"OPEN\"\n| extend AlarmUrl = coalesce(column_ifexists(\"AlarmUrl\", \"\"), strcat(\"https://platform.socradar.com/app/company/\", CompanyId, \"/alarm-management?tab=\", iff(tostring(AlarmPayload.is_approved) == \"false\", \"potential\", \"approved\"), \"&field=alarmId&operator=equals&value=\", AlarmId))\n| extend SentinelSeverity = case(toupper(Severity) in (\"CRITICAL\", \"HIGH\"), \"High\", toupper(Severity) == \"MEDIUM\", \"Medium\", \"Low\")\n| extend AlarmContent = iff(gettype(AlarmPayload.content) == \"dictionary\", AlarmPayload.content, dynamic({}))\n| mv-apply ContentKey = bag_keys(AlarmContent) to typeof(string) on (\n    extend PlainKey = replace_string(replace_string(replace_string(replace_string(ContentKey, \"\\r\", \"\"), \"\\n\", \" \"), \"\\\"\", \"”\"), \"_\", \" \")\n    | extend ContentPacked = dynamic_to_json(pack_array(AlarmContent[ContentKey]))\n    | extend ContentJson = substring(ContentPacked, 1, strlen(ContentPacked) - 2)\n    | extend RootKind = gettype(AlarmContent[ContentKey])\n    | extend ContentTokens = extract_all(@\"\\x22((?:\\\\.|[^\\x22\\\\])*)\\x22|([{}\\[\\],:])|(-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?|true|false|null)\", ContentJson)\n    | mv-apply with_itemindex=TokenIndex Token = ContentTokens to typeof(dynamic) on (\n        extend StringInner = tostring(Token[0]), Punctuation = tostring(Token[1]), Scalar = tostring(Token[2])\n        | extend DecodedString = replace_string(replace_string(replace_string(tostring(parse_json(strcat(\"\\\"\", StringInner, \"\\\"\"))), \"\\r\", \"\"), \"\\n\", \"; \"), \"\\\"\", \"”\")\n        | extend Delta = case(Punctuation in (\"{\", \"[\"), 1, Punctuation in (\"}\", \"]\"), -1, 0)\n        | serialize\n        | extend Depth = row_cumsum(Delta)\n        | extend TokenText = case(\n            isnotempty(StringInner), DecodedString,\n            isnotempty(Scalar), iff(Scalar == \"null\", \"-\", Scalar),\n            Punctuation == \":\", \": \",\n            Punctuation == \",\", iff(RootKind == \"array\", \", \", \"; \"),\n            Punctuation in (\"{\", \"[\"), iff(Depth == 1, \"\", \"(\"),\n            Punctuation in (\"}\", \"]\"), iff(Depth == 0, \"\", \")\"),\n            \"-\")\n        | summarize ContentValue = strcat_array(make_list(TokenText), \"\")\n    )\n    | summarize ContentRows = make_list(strcat(PlainKey, \": \", iff(isempty(ContentValue), \"-\", iff(strlen(ContentValue) > 300, strcat(substring(ContentValue, 0, 300), \"...\"), ContentValue))))\n)\n| extend ContentText = iff(array_length(ContentRows) == 0, \"\", strcat(substring(strcat(\"Content:\\n\", strcat_array(ContentRows, \"\\n\")), 0, 2600), \"\\n\\n\"))\n| extend DetailsText = strcat(substring(replace_string(AlarmText, \"\\r\", \"\"), 0, 1500), iff(strlen(AlarmText) > 1500, \"...\", \"\"))\n| extend DescriptionBody = strcat(\"SOCRadar Alarm\\n\\nAlarm ID: \", AlarmId, \"\\n\\nMain Type: \", coalesce(AlarmMainType, \"N/A\"), \"\\n\\nSub Type: \", coalesce(AlarmSubType, \"N/A\"), \"\\n\\nSeverity: \", Severity, \"\\n\\nStatus: \", Status, \"\\n\\nCreated: \", AlarmDate, \"\\n\\nDetails:\\n\", coalesce(DetailsText, \"No details\"), \"\\n\\n\", ContentText)\n| extend FullDescriptionLink = strcat(\"View in SOCRadar: \", AlarmUrl)\n| extend FullDescriptionLinkBytes = strlen(base64_encode_tostring(FullDescriptionLink)) * 3 / 4\n| extend DescriptionLink = iff(FullDescriptionLinkBytes > 768, \"View in SOCRadar: link omitted (URL too long)\", FullDescriptionLink)\n| extend DescriptionLinkBytes = strlen(base64_encode_tostring(DescriptionLink)) * 3 / 4\n| extend BodyBytes = strlen(base64_encode_tostring(DescriptionBody)) * 3 / 4, BodyBudget = max_of(0, 4800 - DescriptionLinkBytes)\n| extend AlarmDescription = strcat(iff(BodyBytes > BodyBudget, strcat(substring(DescriptionBody, 0, toint(strlen(DescriptionBody) * 1.0 * BodyBudget / BodyBytes) - 10), \"...\\n\\n\"), DescriptionBody), DescriptionLink)\n| extend AlarmDescription = iff(strlen(base64_encode_tostring(AlarmDescription)) * 3 / 4 > 4900, strcat(substring(DescriptionBody, 0, 1000), \"...\\n\\n\", DescriptionLink), AlarmDescription)\n| project TimeGenerated, AlarmId, CompanyId, Title, AlarmDescription, AlarmMainType, AlarmSubType, Severity, Status, AlarmDate, AlarmUrl, SentinelSeverity\n| order by TimeGenerated asc\n| take 149')]",
         "queryFrequency": "PT10M",
         "queryPeriod": "P1D",
         "triggerOperator": "GreaterThan",
         "triggerThreshold": 0,
         "suppressionDuration": "PT5M",
         "suppressionEnabled": false,
-        "tactics": [],
-        "techniques": [],
+        "tactics": "[variables('tacticsMap')[variables('ruleTypes')[copyIndex()]].tactics]",
+        "techniques": "[variables('tacticsMap')[variables('ruleTypes')[copyIndex()]].techniques]",
         "eventGroupingSettings": {
           "aggregationKind": "AlertPerResult"
         },
@@ -439,13 +521,7 @@
           "alertDescriptionFormat": "{{AlarmDescription}}",
           "alertSeverityColumnName": "SentinelSeverity"
         },
-        "customDetails": {
-          "AlarmId": "AlarmId",
-          "AlarmMainType": "AlarmMainType",
-          "AlarmSubType": "AlarmSubType",
-          "SocradarSeverity": "Severity",
-          "AlarmStatus": "Status"
-        },
+        "customDetails": "[variables('alarmCustomDetails')]",
         "entityMappings": [
           {
             "entityType": "URL",
@@ -467,18 +543,19 @@
             "groupByEntities": [
               "URL"
             ],
-            "groupByAlertDetails": [],
-            "groupByCustomDetails": []
+            "groupByAlertDetails": "[json('[]')]",
+            "groupByCustomDetails": "[json('[]')]"
           }
         }
       },
       "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'precheck-workspace-exists')]",
         "[resourceId('Microsoft.OperationalInsights/workspaces/tables', parameters('WorkspaceName'), variables('tableName'))]"
       ]
     },
     {
       "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
-      "apiVersion": "2024-10-01-preview",
+      "apiVersion": "2025-07-01-preview",
       "name": "[concat(parameters('WorkspaceName'), '/Microsoft.SecurityInsights/', guid(resourceId('Microsoft.OperationalInsights/workspaces', parameters('WorkspaceName')), variables('ruleTypes')[copyIndex()], 'nrt'))]",
       "kind": "NRT",
       "copy": {
@@ -491,11 +568,11 @@
         "description": "[concat('Raises an incident within minutes for every new OPEN SOCRadar alarm of main type ', variables('ruleTypes')[copyIndex()], '.')]",
         "severity": "Medium",
         "enabled": true,
-        "query": "[concat('SOCRadar_Alarms_CL\n| where isnotempty(AlarmId)\n| where column_ifexists(\"EventType\", \"\") != \"connection.test\"\n| where ', if(equals(variables('ruleTypes')[copyIndex()], 'Other'), concat('AlarmMainType !in ', variables('knownTypesKql')), concat('AlarmMainType == \"', variables('ruleTypes')[copyIndex()], '\"')), '\n| summarize arg_max(TimeGenerated, *) by AlarmId\n| where toupper(Status) == \"OPEN\"\n| extend AlarmUrl = coalesce(column_ifexists(\"AlarmUrl\", \"\"), strcat(\"https://platform.socradar.com/company/\", CompanyId, \"/alarm/\", AlarmId))\n| extend SentinelSeverity = case(toupper(Severity) in (\"CRITICAL\", \"HIGH\"), \"High\", toupper(Severity) == \"MEDIUM\", \"Medium\", \"Low\")\n| extend AlarmDescription = strcat(substring(AlarmText, 0, 1500), \"\\n\\nSOCRadar severity: \", toupper(Severity))\n| project TimeGenerated, AlarmId, CompanyId, Title, AlarmDescription, AlarmMainType, AlarmSubType, Severity, Status, AlarmDate, AlarmUrl, SentinelSeverity')]",
+        "query": "[concat('SOCRadar_Push_Alarms_CL\n| where isnotempty(AlarmId)\n| where column_ifexists(\"EventType\", \"\") != \"connection.test\"\n| where ', if(equals(variables('ruleTypes')[copyIndex()], 'Other'), concat('AlarmMainType !in ', variables('knownTypesKql')), concat('AlarmMainType == \"', variables('ruleTypes')[copyIndex()], '\"')), '\n| summarize arg_max(TimeGenerated, *) by AlarmId\n| where toupper(Status) == \"OPEN\"\n| extend AlarmUrl = coalesce(column_ifexists(\"AlarmUrl\", \"\"), strcat(\"https://platform.socradar.com/app/company/\", CompanyId, \"/alarm-management?tab=\", iff(tostring(AlarmPayload.is_approved) == \"false\", \"potential\", \"approved\"), \"&field=alarmId&operator=equals&value=\", AlarmId))\n| extend SentinelSeverity = case(toupper(Severity) in (\"CRITICAL\", \"HIGH\"), \"High\", toupper(Severity) == \"MEDIUM\", \"Medium\", \"Low\")\n| extend AlarmContent = iff(gettype(AlarmPayload.content) == \"dictionary\", AlarmPayload.content, dynamic({}))\n| mv-apply ContentKey = bag_keys(AlarmContent) to typeof(string) on (\n    extend PlainKey = replace_string(replace_string(replace_string(replace_string(ContentKey, \"\\r\", \"\"), \"\\n\", \" \"), \"\\\"\", \"”\"), \"_\", \" \")\n    | extend ContentPacked = dynamic_to_json(pack_array(AlarmContent[ContentKey]))\n    | extend ContentJson = substring(ContentPacked, 1, strlen(ContentPacked) - 2)\n    | extend RootKind = gettype(AlarmContent[ContentKey])\n    | extend ContentTokens = extract_all(@\"\\x22((?:\\\\.|[^\\x22\\\\])*)\\x22|([{}\\[\\],:])|(-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?|true|false|null)\", ContentJson)\n    | mv-apply with_itemindex=TokenIndex Token = ContentTokens to typeof(dynamic) on (\n        extend StringInner = tostring(Token[0]), Punctuation = tostring(Token[1]), Scalar = tostring(Token[2])\n        | extend DecodedString = replace_string(replace_string(replace_string(tostring(parse_json(strcat(\"\\\"\", StringInner, \"\\\"\"))), \"\\r\", \"\"), \"\\n\", \"; \"), \"\\\"\", \"”\")\n        | extend Delta = case(Punctuation in (\"{\", \"[\"), 1, Punctuation in (\"}\", \"]\"), -1, 0)\n        | serialize\n        | extend Depth = row_cumsum(Delta)\n        | extend TokenText = case(\n            isnotempty(StringInner), DecodedString,\n            isnotempty(Scalar), iff(Scalar == \"null\", \"-\", Scalar),\n            Punctuation == \":\", \": \",\n            Punctuation == \",\", iff(RootKind == \"array\", \", \", \"; \"),\n            Punctuation in (\"{\", \"[\"), iff(Depth == 1, \"\", \"(\"),\n            Punctuation in (\"}\", \"]\"), iff(Depth == 0, \"\", \")\"),\n            \"-\")\n        | summarize ContentValue = strcat_array(make_list(TokenText), \"\")\n    )\n    | summarize ContentRows = make_list(strcat(PlainKey, \": \", iff(isempty(ContentValue), \"-\", iff(strlen(ContentValue) > 300, strcat(substring(ContentValue, 0, 300), \"...\"), ContentValue))))\n)\n| extend ContentText = iff(array_length(ContentRows) == 0, \"\", strcat(substring(strcat(\"Content:\\n\", strcat_array(ContentRows, \"\\n\")), 0, 2600), \"\\n\\n\"))\n| extend DetailsText = strcat(substring(replace_string(AlarmText, \"\\r\", \"\"), 0, 1500), iff(strlen(AlarmText) > 1500, \"...\", \"\"))\n| extend DescriptionBody = strcat(\"SOCRadar Alarm\\n\\nAlarm ID: \", AlarmId, \"\\n\\nMain Type: \", coalesce(AlarmMainType, \"N/A\"), \"\\n\\nSub Type: \", coalesce(AlarmSubType, \"N/A\"), \"\\n\\nSeverity: \", Severity, \"\\n\\nStatus: \", Status, \"\\n\\nCreated: \", AlarmDate, \"\\n\\nDetails:\\n\", coalesce(DetailsText, \"No details\"), \"\\n\\n\", ContentText)\n| extend FullDescriptionLink = strcat(\"View in SOCRadar: \", AlarmUrl)\n| extend FullDescriptionLinkBytes = strlen(base64_encode_tostring(FullDescriptionLink)) * 3 / 4\n| extend DescriptionLink = iff(FullDescriptionLinkBytes > 768, \"View in SOCRadar: link omitted (URL too long)\", FullDescriptionLink)\n| extend DescriptionLinkBytes = strlen(base64_encode_tostring(DescriptionLink)) * 3 / 4\n| extend BodyBytes = strlen(base64_encode_tostring(DescriptionBody)) * 3 / 4, BodyBudget = max_of(0, 4800 - DescriptionLinkBytes)\n| extend AlarmDescription = strcat(iff(BodyBytes > BodyBudget, strcat(substring(DescriptionBody, 0, toint(strlen(DescriptionBody) * 1.0 * BodyBudget / BodyBytes) - 10), \"...\\n\\n\"), DescriptionBody), DescriptionLink)\n| extend AlarmDescription = iff(strlen(base64_encode_tostring(AlarmDescription)) * 3 / 4 > 4900, strcat(substring(DescriptionBody, 0, 1000), \"...\\n\\n\", DescriptionLink), AlarmDescription)\n| project TimeGenerated, AlarmId, CompanyId, Title, AlarmDescription, AlarmMainType, AlarmSubType, Severity, Status, AlarmDate, AlarmUrl, SentinelSeverity')]",
         "suppressionDuration": "PT5M",
         "suppressionEnabled": false,
-        "tactics": [],
-        "techniques": [],
+        "tactics": "[variables('tacticsMap')[variables('ruleTypes')[copyIndex()]].tactics]",
+        "techniques": "[variables('tacticsMap')[variables('ruleTypes')[copyIndex()]].techniques]",
         "eventGroupingSettings": {
           "aggregationKind": "AlertPerResult"
         },
@@ -504,13 +581,7 @@
           "alertDescriptionFormat": "{{AlarmDescription}}",
           "alertSeverityColumnName": "SentinelSeverity"
         },
-        "customDetails": {
-          "AlarmId": "AlarmId",
-          "AlarmMainType": "AlarmMainType",
-          "AlarmSubType": "AlarmSubType",
-          "SocradarSeverity": "Severity",
-          "AlarmStatus": "Status"
-        },
+        "customDetails": "[variables('alarmCustomDetails')]",
         "entityMappings": [
           {
             "entityType": "URL",
@@ -532,20 +603,22 @@
             "groupByEntities": [
               "URL"
             ],
-            "groupByAlertDetails": [],
-            "groupByCustomDetails": []
+            "groupByAlertDetails": "[json('[]')]",
+            "groupByCustomDetails": "[json('[]')]"
           }
         }
       },
       "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'precheck-workspace-exists')]",
         "[resourceId('Microsoft.OperationalInsights/workspaces/tables', parameters('WorkspaceName'), variables('tableName'))]"
       ]
     },
     {
       "type": "Microsoft.OperationalInsights/workspaces/providers/automationRules",
-      "apiVersion": "2024-03-01",
+      "apiVersion": "2025-09-01",
       "name": "[concat(parameters('WorkspaceName'), '/Microsoft.SecurityInsights/', variables('automationRuleId'))]",
       "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'precheck-workspace-exists')]",
         "socradarAlarmRules"
       ],
       "properties": {
@@ -585,11 +658,12 @@
     },
     {
       "type": "Microsoft.Insights/workbooks",
-      "apiVersion": "2021-08-01",
+      "apiVersion": "2023-06-01",
       "name": "[variables('workbookId')]",
       "location": "[variables('location')]",
       "kind": "shared",
       "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'precheck-workspace-exists')]",
         "[resourceId('Microsoft.OperationalInsights/workspaces/tables', parameters('WorkspaceName'), variables('tableName'))]"
       ],
       "properties": {
@@ -604,15 +678,15 @@
   "outputs": {
     "LogIngestionUrl": {
       "type": "string",
-      "value": "[concat(reference(resourceId('Microsoft.Insights/dataCollectionEndpoints', variables('dceName')), '2023-03-11').logsIngestion.endpoint, '/dataCollectionRules/', reference(resourceId('Microsoft.Insights/dataCollectionRules', variables('dcrName')), '2023-03-11').immutableId, '/streams/Custom-SOCRadarAlarmsPush?api-version=2023-01-01')]"
+      "value": "[uri(reference(resourceId('Microsoft.Insights/dataCollectionEndpoints', variables('dceName')), '2024-03-11').logsIngestion.endpoint, format('/dataCollectionRules/{0}/streams/Custom-SOCRadarAlarmsPush?api-version=2023-01-01', reference(resourceId('Microsoft.Insights/dataCollectionRules', variables('dcrName')), '2025-05-11').immutableId))]"
     },
     "DceUri": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Insights/dataCollectionEndpoints', variables('dceName')), '2023-03-11').logsIngestion.endpoint]"
+      "value": "[reference(resourceId('Microsoft.Insights/dataCollectionEndpoints', variables('dceName')), '2024-03-11').logsIngestion.endpoint]"
     },
     "DcrImmutableId": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Insights/dataCollectionRules', variables('dcrName')), '2023-03-11').immutableId]"
+      "value": "[reference(resourceId('Microsoft.Insights/dataCollectionRules', variables('dcrName')), '2025-05-11').immutableId]"
     },
     "StreamName": {
       "type": "string",

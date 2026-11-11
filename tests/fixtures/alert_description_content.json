@@ -1,0 +1,62 @@
+[
+  {
+    "name": "array",
+    "input": {"tags": ["sentetik", "örnek"]},
+    "expected": "tags: sentetik, örnek"
+  },
+  {
+    "name": "object",
+    "input": {"evidence": {"source": "test", "value": "bir | iki"}},
+    "expected": "evidence: source: test; value: bir | iki"
+  },
+  {
+    "name": "nested",
+    "input": {"context": {"items": [{"id": 7, "label": "x"}]}},
+    "expected": "context: items: ((id: 7; label: x))"
+  },
+  {
+    "name": "empty",
+    "input": {"empty_array": [], "empty_object": {}},
+    "expected": "empty array: -; empty object: -"
+  },
+  {
+    "name": "scalars",
+    "input": {"count": 42, "enabled": true},
+    "expected": "count: 42; enabled: true"
+  },
+  {
+    "name": "quotes_and_punctuation",
+    "input": {"note": "tırnak \"iç\" ve virgül, brace { korunur"},
+    "expected": "note: tırnak ”iç” ve virgül, brace { korunur"
+  },
+  {
+    "name": "escaped_backslash_and_quote",
+    "input": {"note": "tırnak \\\"iç\\\" korunur"},
+    "expected": "note: tırnak \\”iç\\” korunur"
+  },
+  {
+    "name": "literal_json_looking_string",
+    "input": {"note": "[literal]"},
+    "expected": "note: [literal]"
+  },
+  {
+    "name": "newline",
+    "input": {"note": "ilk\nikinci"},
+    "expected": "note: ilk; ikinci"
+  },
+  {
+    "name": "exponent_array",
+    "input": {"values": [1e100, -2.5e-3]},
+    "expected": "values: 1e100, -0.0025"
+  },
+  {
+    "name": "null_and_empty_string",
+    "input": {"none": null, "blank": ""},
+    "expected": "none: -; blank: -"
+  },
+  {
+    "name": "newline_key",
+    "input": {"line\nkey": "value"},
+    "expected": "line key: value"
+  }
+]

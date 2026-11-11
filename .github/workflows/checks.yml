@@ -1,0 +1,87 @@
+name: Checks
+
+on:
+  push:
+    branches: [master, main, "e2e-*", "armttk0-0116"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Every tracked JSON parses
+        run: |
+          set -e
+          count=0
+          while IFS= read -r f; do
+            python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f"
+            echo "  ok: $f"
+            count=$((count + 1))
+          done < <(git ls-files '*.json')
+          echo "checked $count file(s)"
+          # A glob that matches nothing would otherwise pass silently.
+          if [ "$count" -lt 1 ]; then
+            echo "expected at least 1 JSON file, found $count"
+            exit 1
+          fi
+        shell: bash
+
+      - name: Template and package checks
+        run: python3 tests/run_all.py
+
+      - name: Every mutation of the precheck is caught
+        run: |
+          python3 tests/mutate.py
+          python3 tests/mutate_limits.py
+
+      - name: Every mutation of the incident description is caught
+        run: python3 tests/mutate_description.py
+
+      - name: No secrets in tracked files
+        run: |
+          set -e
+          # Calibrate first: a scan that cannot see a planted probe proves nothing.
+          # The probe strings are assembled at run time so this file does not trip its own scan.
+          printf 'api_key = "sk-%s"\nAKIA%s\n' "CALIBRATION0123456789012" "0000CALIBRATION1" > .calibration-probe
+          calibration_rc=0
+          grep -rqIE 'sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}' . --exclude-dir=.git || calibration_rc=$?
+          if [ "$calibration_rc" -ne 0 ]; then
+            echo "scan is blind - it cannot see the calibration probe"
+            rm -f .calibration-probe
+            exit 1
+          fi
+          rm -f .calibration-probe
+          echo "  calibration ok"
+          scan_rc=0
+          grep -rqIE 'sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|-----BEGIN [A-Z ]*PRIVATE KEY-----' . --exclude-dir=.git || scan_rc=$?
+          if [ "$scan_rc" -eq 0 ]; then
+            echo "secret pattern found in tracked content"
+            exit 1
+          fi
+          if [ "$scan_rc" -ne 1 ]; then
+            echo "secret scan failed"
+            exit 1
+          fi
+          echo "  no secret patterns"
+
+  arm-ttk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out ARM-TTK
+        uses: actions/checkout@v4
+        with:
+          repository: Azure/arm-ttk
+          ref: 0ec9a41a4503e970a0ec8efb0cd08415cc172175
+          path: .arm-ttk
+
+      - name: ARM-TTK must have zero failures
+        shell: pwsh
+        run: ./tests/check_arm_ttk.ps1 -ModulePath ./.arm-ttk/arm-ttk/arm-ttk.psd1 -TemplatePath ./azuredeploy.json -ResultFile "$env:RUNNER_TEMP/armttk.json"
